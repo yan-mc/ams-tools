@@ -1,0 +1,155 @@
+{
+  "308d84a9500875ad6f6a870b8793991c1943b6c9ced44aa5920d88356e26c6fa|f767cb396e6bddd122a9a212f1b6dda6649fb9d8567dbf8ca68e9ba4b2ee61bd": {
+    "big_start_delta": null,
+    "tail_trim": null,
+    "shard_ranges": [
+      [
+        500,
+        3008
+      ],
+      [
+        4002,
+        4999
+      ],
+      [
+        50832,
+        57479819
+      ],
+      [
+        57480821,
+        57481820
+      ],
+      [
+        57484321,
+        57484818
+      ]
+    ],
+    "perm": [
+      2,
+      4,
+      0,
+      1,
+      3
+    ],
+    "score": 0.6501,
+    "finite_ratio": 1.0,
+    "ref_corr": 0.65,
+    "shard_lengths": [
+      2508,
+      997,
+      57428987,
+      999,
+      497
+    ],
+    "max_end": 57433988,
+    "base_total": 57433989,
+    "diff": -1,
+    "calibration_note": "layout_prior_48k",
+    "tool_version": "0.3.0",
+    "source_sha256": "308d84a9500875ad6f6a870b8793991c1943b6c9ced44aa5920d88356e26c6fa",
+    "source": "F:\\ai配音\\心月-变声器\\心月变声\\_internal\\modules\\爱莉希雅\\爱莉希雅.msvc",
+    "reference_pth": "F:\\ai歌曲\\RVC20260311\\assets\\weights\\爱莉希雅.pth"
+  },
+  "79e631fe3e71f9fd2328c17db1092c02b91307db6c4de473a5df07f96f50e648|f3707958b534264b00f8867e0f91bce5f4dbfd02c42267bea9e0c57affee6c62": {
+    "big_start_delta": null,
+    "tail_trim": null,
+    "shard_ranges": [
+      [
+        500,
+        3008
+      ],
+      [
+        4001,
+        4995
+      ],
+      [
+        50878,
+        55120566
+      ],
+      [
+        55121568,
+        55122568
+      ],
+      [
+        55125066,
+        55125568
+      ]
+    ],
+    "perm": [
+      2,
+      4,
+      0,
+      1,
+      3
+    ],
+    "score": 1.0,
+    "finite_ratio": 1.0,
+    "ref_corr": 0.9995,
+    "shard_lengths": [
+      2508,
+      994,
+      55069688,
+      1000,
+      502
+    ],
+    "max_end": 55074692,
+    "base_total": 55074691,
+    "diff": 1,
+    "calibration_note": "even_edge_big_start_pad2",
+    "tool_version": "0.3.0",
+    "source_sha256": "79e631fe3e71f9fd2328c17db1092c02b91307db6c4de473a5df07f96f50e648",
+    "source": "F:\\ai配音\\心月-变声器\\心月变声\\_internal\\modules\\法国赌神\\法国赌神.msvc",
+    "reference_pth": "F:\\ai歌曲\\RVC20260311\\assets\\weights\\manbo.pth"
+  },
+  "bf0b63b10559c8480116398aaf78cf16b20cab02ce02e723bbbd568177296f71|f767cb396e6bddd122a9a212f1b6dda6649fb9d8567dbf8ca68e9ba4b2ee61bd": {
+    "big_start_delta": null,
+    "tail_trim": null,
+    "shard_ranges": [
+      [
+        500,
+        3002
+      ],
+      [
+        4000,
+        5000
+      ],
+      [
+        50887,
+        57479873
+      ],
+      [
+        57480875,
+        57481875
+      ],
+      [
+        57484375,
+        57484875
+      ]
+    ],
+    "perm": [
+      2,
+      4,
+      0,
+      1,
+      3
+    ],
+    "score": 0.6571,
+    "finite_ratio": 1.0,
+    "ref_corr": 0.6571,
+    "shard_lengths": [
+      2502,
+      1000,
+      57428986,
+      1000,
+      500
+    ],
+    "max_end": 57433988,
+    "base_total": 57433995,
+    "diff": -7,
+    "calibration_note": "edge_shrink_shard0",
+    "tool_version": "0.3.0",
+    "source_sha256": "bf0b63b10559c8480116398aaf78cf16b20cab02ce02e723bbbd568177296f71",
+    "source": "F:\\ai配音\\心月-变声器\\心月变声\\_internal\\modules\\曼波Pro\\苏苏.msvc",
+    "reference_pth": "F:\\ai歌曲\\RVC20260311\\assets\\weights\\爱莉希雅.pth"
+  }
+}
