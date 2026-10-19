@@ -32,7 +32,7 @@ MAGIC = b"MSVC"
 TAG = b"XINYU_AI"
 TRAILER_LEN = 16
 MIN_RUN = 80
-TOOL_VERSION = "0.3.0"
+TOOL_VERSION = "0.4.0"
 CACHE_NAME = "calibration_cache.json"
 LAYOUT_PRIOR_PERM = (2, 4, 0, 1, 3)  # 48k 已由 RVC load+infer 验证的布局先验
 
@@ -376,6 +376,45 @@ def calibrate(rev, runs, table, refs, has_ref, log=print):
     }
 
 
+def fp16_bad_count(seg):
+    """把一段字节按 fp16 解释，统计非有限或 |v|>20 的坏值数量。"""
+    n = (len(seg) // 2) * 2
+    if n == 0:
+        return 0, 0.0
+    arr = np.frombuffer(seg[:n], dtype="<f2").astype(np.float32)
+    fin = np.isfinite(arr)
+    bad = (~fin) | (np.abs(np.where(fin, arr, 0.0)) > 20.0)
+    mx = float(np.abs(arr[fin]).max()) if fin.any() else 0.0
+    return int(bad.sum()), mx
+
+
+def diagnose_segments(rev, table, log=print):
+    """校准辅助：逐 gap 打印 fp16 合理性，并对边界做 ±2 字节微移找最优变体。"""
+    runs = find_json_runs(rev)
+    gaps = [(runs[i][1], runs[i + 1][0]) for i in range(len(runs) - 1)]
+    gaps.append((runs[-1][1], len(rev)))
+    log("raw runs=%r" % ([(a, b) for a, b in runs],))
+    log("max_end=%d  raw gaps=%r" % (table["_max_end"], [(a, b, b - a) for a, b in gaps]))
+    total = 0
+    for gi, (a, b) in enumerate(gaps):
+        best = None
+        for ds in (-2, -1, 0, 1, 2):
+            for de in (-2, -1, 0, 1, 2):
+                seg = rev[a + ds:b + de]
+                if len(seg) < 16 or len(seg) % 2:
+                    continue
+                bad, mx = fp16_bad_count(seg)
+                key = (bad, abs(ds) + abs(de))
+                if best is None or key < best[0]:
+                    best = (key, ds, de, len(seg), bad, mx)
+        if best:
+            total += best[3]
+            log("  gap%d [%d,%d) raw_len=%d -> 最优 start%+d end%+d len=%d bad=%d max=%.3g"
+                % (gi, a, b, b - a, best[1], best[2], best[3], best[4], best[5]))
+    log("  各 gap 最优变体总长=%d  (max_end=%d, 差=%+d)"
+        % (total, table["_max_end"], total - table["_max_end"]))
+    log("提示：diff!=0 或有 bad 时，结合 RVC load+infer 与参考模型逐张量统计微调边界，写入 calibration_cache.json 的 shard_ranges。")
+
 # ---------------------------------------------------------------- 缓存
 def load_cache(tool_dir):
     p = os.path.join(tool_dir, CACHE_NAME)
@@ -424,7 +463,8 @@ def convert(path, out_dir=None, voice_name=None, report_path=None, reference_pth
     has_ref = len(refs) >= 50
 
     if cached:
-        print("[cache] 使用缓存校准参数: ranges=%s perm=%s" % (cached.get("shard_ranges"), cached.get("perm")))
+        print("[cache] 使用缓存校准参数: ranges=%s perm=%s mask=%s"
+              % (cached.get("shard_ranges"), cached.get("perm"), cached.get("mask_data_ranges")))
         if cached.get("shard_ranges"):
             shards = [rev[int(a):int(b)] for a, b in cached["shard_ranges"]]
         else:
@@ -458,6 +498,17 @@ def convert(path, out_dir=None, voice_name=None, report_path=None, reference_pth
     buf = b"".join(shards[i] for i in perm)
     if len(buf) != table["_max_end"]:
         raise ValueError("分片拼接长度不符: %d vs %d" % (len(buf), table["_max_end"]))
+    # 结构化 footer（如 "PRV1\xb4\xc6\x00\x00"）按缓存显式归零：容器把它计入数据长度，
+    # 但它不是权重，保留会污染 enc_p.proj.weight（M0.5/task-24 实测）。
+    masked = []
+    for a, n in (cached.get("mask_data_ranges") or []):
+        a = int(a)
+        n = int(n)
+        if a < 0 or a + n > len(buf):
+            raise ValueError("mask_data_ranges 越界: %r" % ((a, n),))
+        before = buf[a:a + n].hex()
+        buf = buf[:a] + b"\x00" * n + buf[a + n:]
+        masked.append({"data_offset": a, "length": n, "before_hex": before})
     sd = {}
     sanitized = []
     for t in table["tensors"]:
@@ -527,17 +578,23 @@ def convert(path, out_dir=None, voice_name=None, report_path=None, reference_pth
             "ref_corr": cached["ref_corr"],
             "layout_prior": list(LAYOUT_PRIOR_PERM),
             "used_layout_prior": tuple(perm) == LAYOUT_PRIOR_PERM,
+            "mask_data_ranges": cached.get("mask_data_ranges"),
             "from_cache": bool(cached and use_cache and cache.get(cache_key) is cached),
         },
         "tensor_count": len(sd),
         "sanitized_nonfinite": sanitized,
         "sanitized_total": sum(x["nonfinite"] + x.get("huge", 0) for x in sanitized),
+        "masked_ranges": masked,
         "trailer_hex": trailer.hex(),
         "reference_pth": os.path.abspath(reference_pth) if reference_pth else None,
         "warnings": [],
     }
     if not os.path.exists(os.path.join(vdir, name + ".index")):
         report["warnings"].append("无同名 .index：按 00 约定标记为无检索增强（index_rate=0），不伪造")
+    if masked:
+        report["warnings"].append(
+            "已按校准缓存把 %d 处结构化 footer（共 %d 字节）归零，明细见 masked_ranges"
+            % (len(masked), sum(m["length"] for m in masked)))
     if sanitized:
         report["warnings"].append(
             "已把 %d 个哨兵/填充异常值（非有限或 |v|>20，出现在 %d 个张量）归零，明细见 sanitized_nonfinite"
@@ -562,8 +619,20 @@ def main():
     ap.add_argument("--report", default=None, help="转换报告 JSON 路径")
     ap.add_argument("--reference-pth", default=None, help="参考 RVC 小模型（同架构，用于键集校验与分片校准）")
     ap.add_argument("--no-cache", action="store_true", help="忽略 calibration_cache.json 重新校准")
+    ap.add_argument("--diagnose", action="store_true", help="只做分片边界诊断（fp16 合理性），不转换")
     ap.add_argument("--json", action="store_true", help="仅输出报告 JSON")
     args = ap.parse_args()
+    if args.diagnose:
+        records, trailer = read_records(args.input)
+        metadata = parse_metadata(records[0])
+        rev = records[2]
+        expected = int(metadata.get("tensor_count", 457))
+        runs, order, trims, cand, table, json_len = search_stitch(rev, expected)
+        print("metadata: model_id=%s sr=%s tensor_count=%s"
+              % (metadata.get("model_id"), metadata.get("sr"), metadata.get("tensor_count")))
+        print("json: order=%r trims=%r json_len=%d" % (order, trims, json_len))
+        diagnose_segments(rev, table)
+        return
     report, rp, pth = convert(args.input, args.out, args.name, args.report,
                               args.reference_pth, use_cache=not args.no_cache)
     if args.json:
