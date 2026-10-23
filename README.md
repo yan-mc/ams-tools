@@ -1,5 +1,10 @@
 # ams-tools
 
+> **AMS Studio 子项目 · 工具链**  
+> 把用户已有的外部模型/音频格式转成 AMS 能用的格式，目前核心是 MSVC/XINYU_AI → RVC v2 `.pth` 转换，不分发权重。  
+> 总仓库：https://github.com/yan-mc/AMS-Studio
+
+
 AMS（AI Music Studio）开发/运维工具集。
 
 ## 内容
